@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Интеллектуальная битва — охрана интеллектуальной собственности</title>
+<style>
+:root{--bg:#101629;--panel:#1a2440;--panel2:#222f50;--gold:#ffd166;--mint:#6ee7c2;--text:#f4f6ff;--muted:#b9c3df;--red:#ff7b8b}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:radial-gradient(circle at top,#26375e,#101629 55%);color:var(--text);min-height:100vh}
+.wrap{max-width:1050px;margin:auto;padding:28px 18px 50px}.hero{text-align:center;padding:24px 10px 18px}
+.kicker{color:var(--mint);font-weight:bold;letter-spacing:2px;text-transform:uppercase;font-size:12px}
+h1{font-size:clamp(28px,5vw,46px);margin:12px 0 8px}.sub{color:var(--muted);line-height:1.5}
+.panel{background:rgba(26,36,64,.94);border:1px solid #344365;border-radius:20px;padding:20px;margin:16px 0;box-shadow:0 14px 40px #0003}
+.teams{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px}
+.team{background:var(--panel2);border:1px solid #405174;border-radius:13px;padding:12px;text-align:center;cursor:pointer;color:var(--text)}
+.team.active{border:2px solid var(--gold);background:#35415d}.team b{display:block;font-size:15px}.score{color:var(--gold);font-size:22px;font-weight:bold;margin-top:5px}
+.rounds{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px}
+.round{background:linear-gradient(145deg,#29395e,#1c2947);border:1px solid #425579;border-radius:16px;padding:16px;cursor:pointer;text-align:left;color:var(--text);min-height:125px}
+.round:hover,.round.selected{border-color:var(--mint);transform:translateY(-2px)}.round:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.round .num{color:var(--gold);font-weight:bold;font-size:12px}.round h3{margin:8px 0}.round p{color:var(--muted);font-size:13px;margin:0}
+h2{font-size:21px;margin:0 0 14px}.question{font-size:21px;line-height:1.45;margin:10px 0 18px}
+.options{display:grid;gap:10px}.option{border:1px solid #4b5b7e;background:#263452;color:var(--text);padding:13px 15px;border-radius:12px;text-align:left;font-size:15px;cursor:pointer}
+.option.chosen{border:2px solid var(--gold);background:#394661}.option.correct{border-color:var(--mint);background:#17483f}.option.wrong{border-color:var(--red);background:#512d3b}
+.btn{border:0;border-radius:12px;padding:12px 18px;font-weight:bold;cursor:pointer;margin:12px 8px 0 0;background:var(--gold);color:#20243a}.btn.secondary{background:#3b4b6d;color:white}.btn:disabled{opacity:.4;cursor:not-allowed}
+.feedback{padding:13px;border-radius:12px;margin-top:14px;line-height:1.5;background:#243653;color:var(--muted)}.feedback.good{border:1px solid var(--mint);color:#d5fff3}.feedback.bad{border:1px solid var(--red);color:#ffe1e5}
+.hidden{display:none}.pill{display:inline-block;padding:6px 10px;border-radius:30px;background:#354765;color:var(--mint);font-size:12px;font-weight:bold}
+.footer{text-align:center;color:var(--muted);font-size:12px;margin-top:28px}
+@media(max-width:600px){.wrap{padding:15px 12px}.panel{padding:15px}.question{font-size:18px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="hero">
+<div class="kicker">Онлайн-игра для семинара</div>
+<h1>Интеллектуальная битва</h1>
+<div class="sub">Международно-правовая охрана интеллектуальной собственности<br>5 команд · 5 раундов · общая таблица результатов</div>
+</header>
+<section class="panel">
+<h2>Выберите активную команду</h2>
+<div class="teams" id="teams"></div>
+</section>
+<section class="panel">
+<h2>Раунды игры</h2>
+<div class="rounds" id="rounds"></div>
+</section>
+<section class="panel hidden" id="game">
+<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
+<span class="pill" id="roundLabel"></span><span class="pill" id="pointsLabel"></span>
+</div>
+<div class="question" id="question"></div>
+<div class="options" id="options"></div>
+<div id="feedback" class="feedback hidden"></div>
+<button class="btn" id="checkBtn" onclick="checkAnswer()">Проверить ответ</button>
+<button class="btn secondary" id="nextBtn" onclick="nextQuestion()" disabled>Следующее задание</button>
+</section>
+<section class="panel">
+<h2>Правила</h2>
+<div class="sub">1. Выберите команду. 2. Откройте любой раунд. 3. Команда обсуждает вопрос и выбирает ответ. 4. Нажмите «Проверить ответ». 5. За правильный ответ начисляются баллы. Ведущий может передавать ход следующей команде.</div>
+<button class="btn secondary" onclick="resetGame()">Начать заново</button>
+</section>
+<div class="footer">Учебная игра · Международное право интеллектуальной собственности</div>
+</div>
+<script>
+const teams=Array.from({length:5},(_,i)=>({name:`Команда ${i+1}`,score:0}));
+let active=0, current=null, selected=null, answered=false, completed=new Set(), qIndex=0;
+const rounds=[
+{title:"Разминка",desc:"Тест: выберите один правильный ответ",points:100,items:[
+["Какой международный договор регулирует охрану авторских прав?",["Бернская конвенция","Парижская конвенция","Венская конвенция"],0,"Бернская конвенция 1886 года закрепляет международные основы охраны литературных и художественных произведений."],
+["Какая организация специализируется на интеллектуальной собственности?",["ВТО","ВОИС (WIPO)","ЮНЕСКО"],1,"ВОИС содействует охране интеллектуальной собственности во всём мире."],
+["Что охраняет патент?",["Любую идею без оформления","Изобретение при соблюдении условий патентоспособности","Название магазина"],1,"Патент предоставляет охрану техническому решению, отвечающему установленным требованиям."]
+]},
+{title:"Верно или неверно",desc:"Проверьте юридические утверждения",points:150,items:[
+["Авторское право обычно возникает с момента создания произведения.",["Верно","Неверно"],0,"В большинстве правовых систем охрана возникает автоматически, без обязательной регистрации."],
+["Товарный знак и авторское право — одно и то же.",["Верно","Неверно"],1,"Товарный знак индивидуализирует товары или услуги, а авторское право охраняет произведения."],
+["Парижская конвенция связана с охраной промышленной собственности.",["Верно","Неверно"],0,"Она охватывает, в частности, патенты, товарные знаки и промышленные образцы."]
+]},
+{title:"Юридический кейс",desc:"Решите практическую ситуацию",points:250,items:[
+["Компания использовала логотип конкурента, очень похожий на зарегистрированный товарный знак. Какой объект интеллектуальной собственности затронут?",["Авторское право на книгу","Товарный знак","Географическое указание"],1,"В первую очередь речь идёт о возможном нарушении исключительного права на товарный знак."],
+["Студент скопировал статью иностранного автора и выдал её за свою. Какое право нарушено?",["Авторское право","Патентное право","Право на промышленный образец"],0,"Присвоение авторства и копирование текста затрагивают авторские права."],
+["Изобретатель хочет подать одну международную заявку для упрощения патентования в нескольких странах. Какая система может помочь?",["PCT","Бернская система","Мадридский протокол"],0,"Договор о патентной кооперации (PCT) упрощает процедуру подачи международной патентной заявки."]
+]},
+{title:"Угадай международный договор",desc:"Определите договор по его назначению",points:300,items:[
+["Охрана литературных и художественных произведений.",["Бернская конвенция","Парижская конвенция","Соглашение ТРИПС"],0,"Бернская конвенция посвящена авторскому праву."],
+["Охрана промышленной собственности: патентов, товарных знаков и промышленных образцов.",["Римская конвенция","Парижская конвенция","Конвенция ООН по морскому праву"],1,"Парижская конвенция 1883 года — один из основных договоров в сфере промышленной собственности."],
+["Минимальные стандарты охраны интеллектуальной собственности в рамках системы ВТО.",["ТРИПС","PCT","Мадридское соглашение"],0,"Соглашение ТРИПС устанавливает стандарты охраны и защиты прав интеллектуальной собственности для членов ВТО."]
+]},
+{title:"Блиц",desc:"Быстрые вопросы на знание терминов",points:200,items:[
+["Как называется обозначение, отличающее товары одного производителя от товаров других?",["Товарный знак","Патент","Лицензия"],0,"Товарный знак помогает потребителю различать товары и их коммерческое происхождение."],
+["Как называется разрешение правообладателя использовать объект интеллектуальной собственности?",["Лицензия","Регистрация","Экспертиза"],0,"Лицензионный договор предоставляет право использования объекта на согласованных условиях."],
+["Как называется организация ООН в сфере интеллектуальной собственности?",["ВОИС","МОТ","ВТО"],0,"ВОИС — Всемирная организация интеллектуальной собственности."]
+]}
+];
+function renderTeams(){document.getElementById('teams').innerHTML=teams.map((t,i)=>`<button class="team ${i===active?'active':''}" onclick="setTeam(${i})"><b>${t.name}</b><div class="score">${t.score} баллов</div></button>`).join('')}
+function renderRounds(){document.getElementById('rounds').innerHTML=rounds.map((r,i)=>`<button class="round ${current===i?'selected':''}" ${completed.has(i)?'disabled':''} onclick="openRound(${i})"><div class="num">РАУНД ${i+1} · ${r.points} БАЛЛОВ</div><h3>${r.title}</h3><p>${completed.has(i)?'Раунд завершён':r.desc}</p></button>`).join('')}
+function setTeam(i){active=i;renderTeams()}
+function openRound(i){current=i;qIndex=0;selected=null;answered=false;document.getElementById('game').classList.remove('hidden');renderQuestion();renderRounds();document.getElementById('game').scrollIntoView({behavior:'smooth',block:'start'})}
+function renderQuestion(){let r=rounds[current],q=r.items[qIndex];document.getElementById('roundLabel').textContent=`${r.title} · Вопрос ${qIndex+1} из ${r.items.length}`;document.getElementById('pointsLabel').textContent=`${r.points} баллов`;document.getElementById('question').textContent=q[0];document.getElementById('options').innerHTML=q[1].map((a,i)=>`<button class="option ${selected===i?'chosen':''}" onclick="choose(${i})" ${answered?'disabled':''}>${String.fromCharCode(65+i)}. ${a}</button>`).join('');document.getElementById('feedback').className='feedback hidden';document.getElementById('checkBtn').disabled=false;document.getElementById('nextBtn').disabled=true;document.getElementById('nextBtn').textContent=qIndex===r.items.length-1?'Завершить раунд':'Следующее задание'}
+function choose(i){if(answered)return;selected=i;document.querySelectorAll('.option').forEach((el,j)=>el.classList.toggle('chosen',j===i))}
+function checkAnswer(){if(selected===null){alert('Сначала выберите ответ!');return}if(answered)return;answered=true;let q=rounds[current].items[qIndex],ok=selected===q[2];if(ok)teams[active].score+=rounds[current].points;document.querySelectorAll('.option').forEach((el,j)=>{el.disabled=true;if(j===q[2])el.classList.add('correct');else if(j===selected)el.classList.add('wrong')});let f=document.getElementById('feedback');f.className='feedback '+(ok?'good':'bad');f.innerHTML=`<b>${ok?'Верно! Команде начислено '+rounds[current].points+' баллов.':'Неверно. Баллы не начисляются.'}</b><br>${q[3]}`;document.getElementById('checkBtn').disabled=true;document.getElementById('nextBtn').disabled=false;renderTeams()}
+function nextQuestion(){let r=rounds[current];if(qIndex<r.items.length-1){qIndex++;selected=null;answered=false;renderQuestion()}else{completed.add(current);document.getElementById('game').classList.add('hidden');current=null;renderRounds();if(completed.size===rounds.length)showWinner()}}
+function showWinner(){let sorted=[...teams].sort((a,b)=>b.score-a.score);alert('Игра завершена! Победитель: '+sorted[0].name+' — '+sorted[0].score+' баллов.\\n\\n'+sorted.map((t,i)=>(i+1)+'. '+t.name+' — '+t.score).join('\\n'))}
+function resetGame(){if(!confirm('Сбросить все результаты и начать заново?'))return;teams.forEach(t=>t.score=0);completed.clear();current=null;selected=null;document.getElementById('game').classList.add('hidden');renderTeams();renderRounds()}
+renderTeams();renderRounds();
+</script>
+</body></html>
